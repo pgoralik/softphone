@@ -1,14 +1,20 @@
 package com.ocadotech.callcentre.softphone;
 
-import com.ocadotech.callcentre.softphone.impl.sip.SipClient;
-
-import javax.sip.Dialog;
-import javax.sip.DialogState;
-import java.util.concurrent.TimeUnit;
-
 public class Main {
+
+    static final String ASTERISK_HOST = "192.168.0.100";
+    static final String LOCAL_HOST_ADDRESS = "192.168.0.104";
+
     public static void main(String[] args) throws Exception {
-        Softphone customerSoftphone = new Softphone("6001", "192.168.0.105");
-        customerSoftphone.call("200");
+        Softphone advisorSoftphone = new SoftphoneBuilder("6002", ASTERISK_HOST)
+                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+                .build();
+        advisorSoftphone.whenCalled(Softphone::answer);
+
+//        Softphone customerSoftphone = new SoftphoneBuilder("6001", ASTERISK_HOST)
+//                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+//                .build();
+//        customerSoftphone.call("200");
+
     }
 }
