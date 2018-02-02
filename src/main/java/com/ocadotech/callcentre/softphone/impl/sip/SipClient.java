@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SipClient implements SipListener {
 
@@ -35,11 +36,15 @@ public class SipClient implements SipListener {
 
     private Dialog currentDialog;
 
+    private AtomicLong cseqGenerator = new AtomicLong(1);
+    private AtomicLong cseqGeneratorRegister = new AtomicLong(1);
+
     public SipClient(String user, String host, String localHostAddress) {
         this.user = user;
         this.host = host;
         this.localHostAddress = localHostAddress;
         this.port = randomPort();
+        System.out.println("SIP CLIENT PORT " + this.port);
 
         try {
             SipFactory sipFactory = SipFactory.getInstance();
@@ -70,14 +75,25 @@ public class SipClient implements SipListener {
     }
 
     public void unregisterAllBindings() {
-        // TODO PG: Add unregister to make it work properly between multiple runs
-        //   The REGISTER-specific Contact header field value of "*" applies to
-        //   all registrations, but it MUST NOT be used unless the Expires header
-        //   field is present with a value of "0".
-        //
-        //      Use of the "*" Contact header field value allows a registering UA
-        //      to remove all bindings associated with an address-of-record
-        //      without knowing their precise values.
+        try {
+            SipURI sipURI = addressFactory.createSipURI(user, host);
+            Address toAddress = addressFactory.createAddress(sipURI);
+            CallIdHeader newCallId = sipProviderUdp.getNewCallId();
+            CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(cseqGeneratorRegister.getAndIncrement(), Request.REGISTER);
+            FromHeader fromHeader = headerFactory.createFromHeader(toAddress, null);
+            ToHeader toHeader = headerFactory.createToHeader(toAddress, null);
+            Request request = messageFactory.createRequest(sipURI, Request.REGISTER, newCallId, cSeqHeader,
+                    fromHeader, toHeader, getViaHeaders(), getMaxForwardsHeader());
+            SipURI contactAddress = addressFactory.createSipURI(user, localHostAddress);
+            contactAddress.setPort(this.port);
+            request.addHeader(headerFactory.createExpiresHeader(0));
+            request.addHeader(headerFactory.createContactHeader());
+            System.out.println("Sending UNREGISTER");
+            System.out.println(request);
+            sipProviderUdp.sendRequest(request);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void register() {
@@ -85,7 +101,7 @@ public class SipClient implements SipListener {
             SipURI sipURI = addressFactory.createSipURI(user, host);
             Address toAddress = addressFactory.createAddress(sipURI);
             CallIdHeader newCallId = sipProviderUdp.getNewCallId();
-            CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(1L, Request.REGISTER);
+            CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(cseqGeneratorRegister.getAndIncrement(), Request.REGISTER);
             FromHeader fromHeader = headerFactory.createFromHeader(toAddress, null);
             ToHeader toHeader = headerFactory.createToHeader(toAddress, null);
             Request request = messageFactory.createRequest(sipURI, Request.REGISTER, newCallId, cSeqHeader,
@@ -94,6 +110,9 @@ public class SipClient implements SipListener {
             contactAddress.setPort(this.port);
             ContactHeader contactHeader = headerFactory.createContactHeader(addressFactory.createAddress(contactAddress));
             request.addHeader(contactHeader);
+            request.addHeader(headerFactory.createExpiresHeader(10));
+            System.out.println("Sending REGISTER");
+            System.out.println(request);
             sipProviderUdp.sendRequest(request);
         } catch (Exception e) {
             e.printStackTrace();
@@ -140,6 +159,20 @@ public class SipClient implements SipListener {
         SIPRequest request = (SIPRequest) requestEvent.getRequest();
         System.out.println("processRequest");
         System.out.println(request);
+
+        // TODO PG: Handle requests
+
+        if(request.getMethod().equals(Request.BYE)) {
+            SIPResponse response = request.createResponse(Response.OK);
+            try {
+                System.out.println("Sending response to BYE");
+                System.out.println(response);
+                requestEvent.getServerTransaction().sendResponse(response);
+            } catch (SipException | InvalidArgumentException e) {
+                e.printStackTrace();
+            }
+        }
+
     }
 
     @Override
@@ -176,6 +209,7 @@ public class SipClient implements SipListener {
         try {
             Request request = currentDialog.createRequest(Request.INFO);
             request.setContent(content, headerFactory.createContentTypeHeader("application", "dtmf"));
+            request.setHeader(headerFactory.createCSeqHeader(cseqGenerator.getAndIncrement(), Request.INFO));
             sipProviderUdp.sendRequest(request);
         }  catch(Exception e) {
             e.printStackTrace();

@@ -10,6 +10,8 @@ public class Softphone {
     Softphone(String user, String host, String localhostAddress) {
         sipClient = new SipClient(user, host, localhostAddress);
         sipClient.register();
+//        sipClient.unregisterAllBindings();
+//        sipClient.register();
     }
 
     public void call(String phoneNumber) {
