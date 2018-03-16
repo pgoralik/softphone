@@ -1,6 +1,7 @@
 package com.ocadotech.callcentre.softphone;
 
 import com.ocadotech.callcentre.softphone.impl.sip.SipClient;
+
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -10,8 +11,10 @@ public class Softphone {
     Softphone(String user, String host, String localhostAddress) {
         sipClient = new SipClient(user, host, localhostAddress);
         sipClient.register();
-//        sipClient.unregisterAllBindings();
-//        sipClient.register();
+    }
+
+    public void close() {
+        sipClient.close();
     }
 
     public void call(String phoneNumber) {
@@ -30,11 +33,10 @@ public class Softphone {
     }
 
     public void answer() {
-
+        sipClient.answerToInvite();
     }
 
     public void hangup() {
-
     }
 
     public void waitMiliseconds(int ms) {
