@@ -3,7 +3,6 @@ package com.ocadotech.callcentre.softphone;
 import com.ocadotech.callcentre.softphone.impl.sip.SipClient;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public class Softphone {
     private SipClient sipClient;
@@ -33,10 +32,15 @@ public class Softphone {
     }
 
     public void answer() {
-        sipClient.answerToInvite();
+        sipClient.answerOkToInvite();
+    }
+
+    public void reject() {
+        sipClient.answerBusyToInvite();
     }
 
     public void hangup() {
+        sipClient.bye();
     }
 
     public void waitMiliseconds(int ms) {
@@ -44,8 +48,5 @@ public class Softphone {
             TimeUnit.MILLISECONDS.sleep(ms);
         } catch (InterruptedException ignored) {
         }
-    }
-
-    public void whenCalled(Consumer<Softphone> action) {
     }
 }

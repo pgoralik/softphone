@@ -31,7 +31,8 @@ public class Main {
         advisorSoftphone.answer();
 
         TimeUnit.SECONDS.sleep(20);
-        customerSoftphone.hangup();
+        advisorSoftphone.hangup();
+//        customerSoftphone.hangup();
 //        customerSoftphone.close();
 //        advisorSoftphone.close();
     }

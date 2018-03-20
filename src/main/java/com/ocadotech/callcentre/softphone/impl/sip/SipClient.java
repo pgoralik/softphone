@@ -64,6 +64,7 @@ public class SipClient implements SipListener {
 
     private Registrator registrator;
     private SIPResponse preparedOkResponseForInvite;
+    private SIPResponse preparedBusyResponseForInvite;
 
     public SipClient(String user, String host, String localHostAddress) {
         this.user = user;
@@ -107,7 +108,7 @@ public class SipClient implements SipListener {
         }
     }
 
-    public void answerToInvite() {
+    public void answerOkToInvite() {
         if (status != Status.RINGING) {
             throw new IllegalStateException("Can not answer because phone is not ringing");
         }
@@ -118,6 +119,24 @@ public class SipClient implements SipListener {
             sipProviderUdp.sendResponse(preparedOkResponseForInvite);
         } catch (SipException e) {
             e.printStackTrace();
+        }
+    }
+
+    public void answerBusyToInvite() {
+        if (status != Status.RINGING) {
+            throw new IllegalStateException("Can not reject because phone is not ringing");
+        }
+
+        System.out.println("Sending response to INVITE");
+        System.out.println(preparedBusyResponseForInvite);
+    }
+
+    public void bye() {
+        try {
+            Request byeRequest = currentDialog.createRequest(Request.BYE);
+            sipProviderUdp.sendRequest(byeRequest);
+        } catch (SipException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -174,11 +193,13 @@ public class SipClient implements SipListener {
                     sipProviderUdp.sendResponse(optionsResponse);
                     break;
                 case Request.INVITE:
-                    if (status != Status.ON_CALL) { // It looks like we are getting second INVITE during ringing
+                    if (status != Status.ON_CALL) {
+                        prepareBusyResponseForInvite(request);
                         prepareOkResponseForInvite(request);
                         SIPResponse inviteResponse = request.createResponse(Response.RINGING);
                         System.out.println("Sending response to INVITE");
                         System.out.println(inviteResponse);
+                        currentDialog = requestEvent.getDialog();
                         if (requestEvent.getServerTransaction() != null) {
                             requestEvent.getServerTransaction().sendResponse(inviteResponse);
                         } else {
@@ -225,6 +246,10 @@ public class SipClient implements SipListener {
         preparedOkResponseForInvite.setContent(sdpBody, headerFactory.createContentTypeHeader("application", "sdp"));
     }
 
+    private void prepareBusyResponseForInvite(SIPRequest request) {
+        preparedBusyResponseForInvite = request.createResponse(Response.BUSY_HERE);
+    }
+
     @Override
     public void processResponse(ResponseEvent responseEvent) {
         SIPResponse response = (SIPResponse) responseEvent.getResponse();
@@ -259,7 +284,6 @@ public class SipClient implements SipListener {
                 e.printStackTrace();
             }
         }
-
     }
 
     public void info(Object content) {
