@@ -1,45 +1,23 @@
 package com.ocadotech.callcentre.softphone.impl.sip;
 
-import com.ocadotech.callcentre.softphone.Status;
+import com.ocadotech.callcentre.softphone.Softphone;
+import com.ocadotech.callcentre.softphone.StatusHandler;
+import com.ocadotech.callcentre.softphone.impl.status.Status;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 
-import javax.sip.ClientTransaction;
-import javax.sip.Dialog;
-import javax.sip.DialogTerminatedEvent;
-import javax.sip.IOExceptionEvent;
-import javax.sip.InvalidArgumentException;
-import javax.sip.ListeningPoint;
-import javax.sip.RequestEvent;
-import javax.sip.ResponseEvent;
-import javax.sip.SipException;
-import javax.sip.SipFactory;
-import javax.sip.SipListener;
-import javax.sip.SipProvider;
-import javax.sip.SipStack;
-import javax.sip.TimeoutEvent;
-import javax.sip.TransactionTerminatedEvent;
+import javax.sip.*;
 import javax.sip.address.Address;
 import javax.sip.address.AddressFactory;
 import javax.sip.address.SipURI;
-import javax.sip.header.CSeqHeader;
-import javax.sip.header.CallIdHeader;
-import javax.sip.header.ContactHeader;
-import javax.sip.header.FromHeader;
-import javax.sip.header.HeaderFactory;
-import javax.sip.header.ToHeader;
-import javax.sip.header.ViaHeader;
+import javax.sip.header.*;
 import javax.sip.message.MessageFactory;
 import javax.sip.message.Request;
 import javax.sip.message.Response;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 
 import static com.ocadotech.callcentre.softphone.impl.sip.HeaderUtils.getMaxForwardsHeader;
 
@@ -59,6 +37,8 @@ public class SipClient implements SipListener {
 
     private Dialog currentDialog;
     private Status status = Status.READY;
+    private StatusHandler statusHandler;
+    private Softphone softphone;
 
     private long cseq = 1;
 
@@ -66,12 +46,14 @@ public class SipClient implements SipListener {
     private SIPResponse preparedOkResponseForInvite;
     private SIPResponse preparedBusyResponseForInvite;
 
-    public SipClient(String user, String host, String localHostAddress) {
+    public SipClient(String user, String host, String localHostAddress, StatusHandler statusHandler, Softphone softphone) {
         this.user = user;
         this.host = host;
         this.localHostAddress = localHostAddress;
         this.port = randomPort();
         System.out.println("SIP CLIENT PORT " + this.port);
+        this.statusHandler = statusHandler;
+        this.softphone = softphone;
 
         try {
             SipFactory sipFactory = SipFactory.getInstance();
@@ -206,6 +188,7 @@ public class SipClient implements SipListener {
                             sipProviderUdp.sendResponse(inviteResponse);
                         }
                         status = Status.RINGING;
+                        statusHandler.onRinging(softphone);
                     }
                     break;
                 case Request.BYE:
@@ -213,6 +196,8 @@ public class SipClient implements SipListener {
                     System.out.println("Sending response to BYE");
                     System.out.println(byeResponse);
                     requestEvent.getServerTransaction().sendResponse(byeResponse);
+                    status = Status.READY;
+                    statusHandler.onCallEnded(softphone);
                     break;
             }
         } catch (Throwable e) {
@@ -280,6 +265,12 @@ public class SipClient implements SipListener {
                 System.out.println("Sending ACK");
                 System.out.println(ackRequest);
                 dialog.sendAck(ackRequest);
+
+                if (response.getCSeq().getMethod().equals(Request.INVITE)) {
+                    status = Status.ON_CALL;
+                    statusHandler.onCallAnswered(softphone);
+                }
+
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -1,0 +1,10 @@
+context from-internal {
+  6002 => {
+    Dial(PJSIP/6002);
+    Hangup();
+  }
+  6001 => {
+    Dial(PJSIP/6001);
+    Hangup();
+  }
+}

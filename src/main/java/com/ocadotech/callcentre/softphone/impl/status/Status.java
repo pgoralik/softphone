@@ -1,4 +1,4 @@
-package com.ocadotech.callcentre.softphone;
+package com.ocadotech.callcentre.softphone.impl.status;
 
 public enum Status {
     READY,
