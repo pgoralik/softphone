@@ -1,6 +1,6 @@
-package com.ocadotech.callcentre.softphone;
+package com.github.pgoralik.softphone;
 
-import com.ocadotech.callcentre.softphone.impl.status.NoOpStatusHandler;
+import com.github.pgoralik.softphone.impl.status.NoOpStatusHandler;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -23,6 +23,7 @@ public class SoftphoneBuilder {
         return this;
     }
 
+    // TODO: Defining behavior should be moved out from builder. It will allow to reuse softphone instance in between different test scenarios
     public SoftphoneBuilder withStatusListener(StatusHandler statusHandler) {
         this.statusHandler = statusHandler;
         return this;

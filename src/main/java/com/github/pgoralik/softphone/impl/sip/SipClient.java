@@ -1,8 +1,8 @@
-package com.ocadotech.callcentre.softphone.impl.sip;
+package com.github.pgoralik.softphone.impl.sip;
 
-import com.ocadotech.callcentre.softphone.Softphone;
-import com.ocadotech.callcentre.softphone.StatusHandler;
-import com.ocadotech.callcentre.softphone.impl.status.Status;
+import com.github.pgoralik.softphone.Softphone;
+import com.github.pgoralik.softphone.StatusHandler;
+import com.github.pgoralik.softphone.impl.status.Status;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 
@@ -18,8 +18,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.text.ParseException;
 import java.util.*;
-
-import static com.ocadotech.callcentre.softphone.impl.sip.HeaderUtils.getMaxForwardsHeader;
 
 public class SipClient implements SipListener {
 
@@ -46,12 +44,20 @@ public class SipClient implements SipListener {
     private SIPResponse preparedOkResponseForInvite;
     private SIPResponse preparedBusyResponseForInvite;
 
+    private String loggingPrefix;
+
+    private void log(Object message) {
+        System.out.println(loggingPrefix + message);
+    }
+
+
     public SipClient(String user, String host, String localHostAddress, StatusHandler statusHandler, Softphone softphone) {
         this.user = user;
         this.host = host;
         this.localHostAddress = localHostAddress;
         this.port = randomPort();
-        System.out.println("SIP CLIENT PORT " + this.port);
+        this.loggingPrefix = "[" + user + "@" + host + "] ";
+        log("SIP CLIENT PORT " + this.port);
         this.statusHandler = statusHandler;
         this.softphone = softphone;
 
@@ -64,7 +70,6 @@ public class SipClient implements SipListener {
             ListeningPoint udp = sipStack.createListeningPoint(localHostAddress, this.port, "udp");
             sipProviderUdp = sipStack.createSipProvider(udp);
             sipProviderUdp.addSipListener(this);
-
             addressFactory = SipFactory.getInstance().createAddressFactory();
             messageFactory = SipFactory.getInstance().createMessageFactory();
             headerFactory = SipFactory.getInstance().createHeaderFactory();
@@ -95,8 +100,8 @@ public class SipClient implements SipListener {
             throw new IllegalStateException("Can not answer because phone is not ringing");
         }
 
-        System.out.println("Sending response to INVITE");
-        System.out.println(preparedOkResponseForInvite);
+        log("Sending response to INVITE");
+        log(preparedOkResponseForInvite);
         try {
             sipProviderUdp.sendResponse(preparedOkResponseForInvite);
         } catch (SipException e) {
@@ -109,13 +114,15 @@ public class SipClient implements SipListener {
             throw new IllegalStateException("Can not reject because phone is not ringing");
         }
 
-        System.out.println("Sending response to INVITE");
-        System.out.println(preparedBusyResponseForInvite);
+        log("Sending response to INVITE");
+        log(preparedBusyResponseForInvite);
     }
 
     public void bye() {
         try {
             Request byeRequest = currentDialog.createRequest(Request.BYE);
+            log("Sending bye reuest");
+            log(byeRequest);
             sipProviderUdp.sendRequest(byeRequest);
         } catch (SipException e) {
             throw new RuntimeException(e);
@@ -136,7 +143,7 @@ public class SipClient implements SipListener {
             SipURI toSipURI = addressFactory.createSipURI(destUser, host);
             Address toAddress = addressFactory.createAddress(toSipURI);
             ToHeader toHeader = headerFactory.createToHeader(toAddress, null);
-            Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(), getMaxForwardsHeader());
+            Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(), HeaderUtils.getMaxForwardsHeader());
             ContactHeader contactHeader = headerFactory.createContactHeader(fromAddress);
             request.addHeader(contactHeader);
             ClientTransaction clientTransaction = sipProviderUdp.getNewClientTransaction(request);
@@ -157,8 +164,8 @@ public class SipClient implements SipListener {
     public void processRequest(RequestEvent requestEvent) {
         SIPRequest request = (SIPRequest) requestEvent.getRequest();
         if (!request.getCSeq().getMethod().equals(Request.OPTIONS)) {
-            System.out.println("processRequest");
-            System.out.println(request);
+            log("processRequest");
+            log(request);
         }
 
         try {
@@ -179,8 +186,8 @@ public class SipClient implements SipListener {
                         prepareBusyResponseForInvite(request);
                         prepareOkResponseForInvite(request);
                         SIPResponse inviteResponse = request.createResponse(Response.RINGING);
-                        System.out.println("Sending response to INVITE");
-                        System.out.println(inviteResponse);
+                        log("Sending response to INVITE");
+                        log(inviteResponse);
                         currentDialog = requestEvent.getDialog();
                         if (requestEvent.getServerTransaction() != null) {
                             requestEvent.getServerTransaction().sendResponse(inviteResponse);
@@ -193,8 +200,8 @@ public class SipClient implements SipListener {
                     break;
                 case Request.BYE:
                     SIPResponse byeResponse = request.createResponse(Response.OK);
-                    System.out.println("Sending response to BYE");
-                    System.out.println(byeResponse);
+                    log("Sending response to BYE");
+                    log(byeResponse);
                     requestEvent.getServerTransaction().sendResponse(byeResponse);
                     status = Status.READY;
                     statusHandler.onCallEnded(softphone);
@@ -240,8 +247,8 @@ public class SipClient implements SipListener {
         SIPResponse response = (SIPResponse) responseEvent.getResponse();
 
         if (!response.getCSeq().getMethod().equals(Request.REGISTER)) {
-            System.out.println("processResponse " + response.getStatusCode());
-            System.out.println(response);
+            log("processResponse " + response.getStatusCode());
+            log(response);
         }
 
         Dialog dialog = responseEvent.getDialog();
@@ -261,14 +268,20 @@ public class SipClient implements SipListener {
                 Request ackRequest = SipFactory.getInstance().createMessageFactory().createRequest(remotePartyAddress.getURI(), Request.ACK, dialog.getCallId(), cSeqHeader,
                         headerFactory.createFromHeader(dialog.getLocalParty(), dialog.getLocalTag()),
                         headerFactory.createToHeader(remotePartyAddress, dialog.getRemoteTag()),
-                        response.getViaHeaders(), getMaxForwardsHeader());
-                System.out.println("Sending ACK");
-                System.out.println(ackRequest);
+                        response.getViaHeaders(), HeaderUtils.getMaxForwardsHeader());
+                log("Sending ACK");
+                log(ackRequest);
                 dialog.sendAck(ackRequest);
 
                 if (response.getCSeq().getMethod().equals(Request.INVITE)) {
                     status = Status.ON_CALL;
                     statusHandler.onCallAnswered(softphone);
+                }
+
+                if (response.getCSeq().getMethod().equals(Request.BYE)) {
+                    // TODO PG: This is to inform the party which sends BYE, I don't know yet how to do it for the party who receive BYE
+                    status = Status.READY;
+                    statusHandler.onCallEnded(softphone);
                 }
 
             } catch (Exception e) {
@@ -294,17 +307,22 @@ public class SipClient implements SipListener {
 
     @Override
     public void processTimeout(TimeoutEvent timeoutEvent) {
+        log("processTimeout " + timeoutEvent);
     }
 
     @Override
     public void processIOException(IOExceptionEvent exceptionEvent) {
+        log("processIOException " + exceptionEvent);
+
     }
 
     @Override
     public void processTransactionTerminated(TransactionTerminatedEvent transactionTerminatedEvent) {
+        log("processTransactionTerminated " + transactionTerminatedEvent);
     }
 
     @Override
     public void processDialogTerminated(DialogTerminatedEvent dialogTerminatedEvent) {
+        log("processDialogTerminated " + dialogTerminatedEvent);
     }
 }

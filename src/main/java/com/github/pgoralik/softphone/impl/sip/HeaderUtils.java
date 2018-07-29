@@ -1,4 +1,4 @@
-package com.ocadotech.callcentre.softphone.impl.sip;
+package com.github.pgoralik.softphone.impl.sip;
 
 import javax.sip.InvalidArgumentException;
 import javax.sip.PeerUnavailableException;

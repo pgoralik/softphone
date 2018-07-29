@@ -1,15 +1,10 @@
-package com.ocadotech.callcentre.softphone.impl.sip;
+package com.github.pgoralik.softphone.impl.sip;
 
 import javax.sip.SipProvider;
 import javax.sip.address.Address;
 import javax.sip.address.AddressFactory;
 import javax.sip.address.SipURI;
-import javax.sip.header.CSeqHeader;
-import javax.sip.header.CallIdHeader;
-import javax.sip.header.ContactHeader;
-import javax.sip.header.FromHeader;
-import javax.sip.header.HeaderFactory;
-import javax.sip.header.ToHeader;
+import javax.sip.header.*;
 import javax.sip.message.MessageFactory;
 import javax.sip.message.Request;
 import java.util.UUID;
@@ -17,8 +12,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.ocadotech.callcentre.softphone.impl.sip.HeaderUtils.getMaxForwardsHeader;
-import static com.ocadotech.callcentre.softphone.impl.sip.HeaderUtils.getViaHeaders;
+import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getMaxForwardsHeader;
+import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getViaHeaders;
 
 class Registrator {
     private CallIdHeader callId;

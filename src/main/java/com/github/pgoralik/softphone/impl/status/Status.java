@@ -1,4 +1,4 @@
-package com.ocadotech.callcentre.softphone.impl.status;
+package com.github.pgoralik.softphone.impl.status;
 
 public enum Status {
     READY,

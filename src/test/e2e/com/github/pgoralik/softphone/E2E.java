@@ -1,4 +1,4 @@
-package com.ocadotech.callcentre.softphone;
+package com.github.pgoralik.softphone;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +43,12 @@ class E2E {
                     @Override
                     public void onCallAnswered(Softphone thisPhone) {
                         System.out.println("E2E callInitiatedAndEndedByTheSamePeer - onCallAnswered");
-                        thisPhone.waitMiliseconds(1000);
                         thisPhone.hangup();
                         thisPhone.waitMiliseconds(500);
+                    }
+
+                    public void onCallEnded(Softphone softphone) {
+                        callFlowEndedSuccessfully = true;
                     }
                 })
                 .build();
@@ -57,12 +60,6 @@ class E2E {
                     public void onRinging(Softphone thisPhone) {
                         System.out.println("E2E callInitiatedAndEndedByTheSamePeer - onRinging");
                         thisPhone.answer();
-                    }
-
-                    @Override
-                    public void onCallEnded(Softphone thisPhone) {
-                        System.out.println("E2E callInitiatedAndEndedByTheSamePeer - onCallEnded");
-                        callFlowEndedSuccessfully = true;
                     }
                 })
                 .build();

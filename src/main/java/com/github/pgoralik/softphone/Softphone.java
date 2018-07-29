@@ -1,7 +1,7 @@
-package com.ocadotech.callcentre.softphone;
+package com.github.pgoralik.softphone;
 
-import com.ocadotech.callcentre.softphone.impl.sip.SipClient;
-import com.ocadotech.callcentre.softphone.impl.status.Status;
+import com.github.pgoralik.softphone.impl.sip.SipClient;
+import com.github.pgoralik.softphone.impl.status.Status;
 
 import java.util.concurrent.TimeUnit;
 
