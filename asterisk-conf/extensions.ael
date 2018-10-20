@@ -1,5 +1,6 @@
 context from-internal {
   6002 => {
     Dial(PJSIP/6002);
+    Hangup();
   }
 }

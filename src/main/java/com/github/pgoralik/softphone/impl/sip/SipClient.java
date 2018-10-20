@@ -41,8 +41,8 @@ public class SipClient implements SipListener {
     private long cseq = 1;
 
     private Registrator registrator;
-    private SIPResponse preparedOkResponseForInvite;
-    private SIPResponse preparedBusyResponseForInvite;
+    private ServerTransaction serverTransaction;
+    private ClientTransaction clientTransaction;
 
     private String loggingPrefix;
 
@@ -65,6 +65,8 @@ public class SipClient implements SipListener {
             SipFactory sipFactory = SipFactory.getInstance();
             Properties properties = new Properties();
             properties.setProperty("javax.sip.STACK_NAME", user + "_SOFTPHONE");
+//            properties.setProperty("gov.nist.javax.sip.TRACE_LEVEL", "32");
+
             sipStack = sipFactory.createSipStack(properties);
 
             ListeningPoint udp = sipStack.createListeningPoint(localHostAddress, this.port, "udp");
@@ -100,11 +102,44 @@ public class SipClient implements SipListener {
             throw new IllegalStateException("Can not answer because phone is not ringing");
         }
 
-        log("Sending response to INVITE");
-        log(preparedOkResponseForInvite);
+        Request originalRequest = serverTransaction.getRequest();
         try {
-            sipProviderUdp.sendResponse(preparedOkResponseForInvite);
-        } catch (SipException e) {
+            Response response = messageFactory.createResponse(Response.OK, originalRequest);
+            ToHeader responseToHeader = (ToHeader) response.getHeader("To");
+            responseToHeader.setTag("454326");
+            Address contactAddress = addressFactory.createAddress("sip:" + localHostAddress + ":" + port);
+            ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
+            response.addHeader(contactHeader);
+
+            // TODO PG: It is suggested that it should be NTP time format
+            long sessionIdAndVersion = System.currentTimeMillis();
+            String sdpBody =
+                    "v=0\n" +
+                            // TODO PG: Think about putting in here user's login from host instead of '-'
+                            "o=- " + sessionIdAndVersion + " " + sessionIdAndVersion + " IN IP4 " + localHostAddress + "\n" +
+                            "s=" + user + " Session\n" +
+                            "c=IN IP4 " + localHostAddress + "\n" +
+                            "t=0 0\n" +
+                            "m=audio 20008 RTP/AVP 0 101\n" +
+                            "a=rtpmap:0 PCMU/8000\n" +
+                            "a=rtpmap:101 telephone-event/8000\n" +
+                            "a=fmtp:101 0-16\n" +
+                            "a=ptime:20\n" +
+                            "a=maxptime:150\n" +
+                            "a=sendrecv\n";
+
+            // --- supported header copied from X-Lite
+            response.addHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"));
+            response.addHeader(headerFactory.createContentLengthHeader(sdpBody.length()));
+            response.setContent(sdpBody, headerFactory.createContentTypeHeader("application", "sdp"));
+
+            log("Sending response to INVITE");
+            log(response);
+
+            serverTransaction.sendResponse(response);
+            currentDialog = serverTransaction.getDialog();
+            log(currentDialog.getState());
+        } catch (ParseException | InvalidArgumentException | SipException e) {
             e.printStackTrace();
         }
     }
@@ -114,17 +149,32 @@ public class SipClient implements SipListener {
             throw new IllegalStateException("Can not reject because phone is not ringing");
         }
 
-        log("Sending response to INVITE");
-        log(preparedBusyResponseForInvite);
+        Request originalRequest = serverTransaction.getRequest();
+        try {
+            Response response = messageFactory.createResponse(Response.BUSY_HERE, originalRequest);
+            ToHeader responseToHeader = (ToHeader) response.getHeader("To");
+            responseToHeader.setTag("454326");
+
+            log("Sending response to INVITE");
+            log(response);
+
+            serverTransaction.sendResponse(response);
+            currentDialog = serverTransaction.getDialog();
+            log(currentDialog.getState());
+        } catch (ParseException | InvalidArgumentException | SipException e) {
+            e.printStackTrace();
+        }
     }
 
     public void bye() {
         try {
             Request byeRequest = currentDialog.createRequest(Request.BYE);
-            log("Sending bye reuest");
+            ClientTransaction clientTransaction = sipProviderUdp.getNewClientTransaction(byeRequest);
+            log("Sending bye request");
             log(byeRequest);
-            sipProviderUdp.sendRequest(byeRequest);
-        } catch (SipException e) {
+            currentDialog.sendRequest(clientTransaction);
+            log("state after sending BYE: " + currentDialog.getState());
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -146,7 +196,9 @@ public class SipClient implements SipListener {
             Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(), HeaderUtils.getMaxForwardsHeader());
             ContactHeader contactHeader = headerFactory.createContactHeader(fromAddress);
             request.addHeader(contactHeader);
-            ClientTransaction clientTransaction = sipProviderUdp.getNewClientTransaction(request);
+            clientTransaction = sipProviderUdp.getNewClientTransaction(request);
+            log("Sending invite request");
+            log(request);
             clientTransaction.sendRequest();
             currentDialog = clientTransaction.getDialog();
         } catch (Exception e) {
@@ -182,18 +234,19 @@ public class SipClient implements SipListener {
                     sipProviderUdp.sendResponse(optionsResponse);
                     break;
                 case Request.INVITE:
-                    if (status != Status.ON_CALL) {
-                        prepareBusyResponseForInvite(request);
-                        prepareOkResponseForInvite(request);
-                        SIPResponse inviteResponse = request.createResponse(Response.RINGING);
+                    if (status == Status.READY) {
+                        serverTransaction = sipProviderUdp.getNewServerTransaction(request);
+                        Response response = messageFactory.createResponse(Response.RINGING, request);
+                        ToHeader responseToHeader = (ToHeader) response.getHeader("To");
+                        responseToHeader.setTag("454326"); // TODO: Should it be a random tag? (it's reused, watch out)
+                        Address contactAddress = addressFactory.createAddress("sip:" + localHostAddress + ":" + port);
+                        ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
+                        response.addHeader(contactHeader);
+                        serverTransaction.sendResponse(response);
+                        currentDialog = serverTransaction.getDialog();
+                        log(currentDialog.getState());
                         log("Sending response to INVITE");
-                        log(inviteResponse);
-                        currentDialog = requestEvent.getDialog();
-                        if (requestEvent.getServerTransaction() != null) {
-                            requestEvent.getServerTransaction().sendResponse(inviteResponse);
-                        } else {
-                            sipProviderUdp.sendResponse(inviteResponse);
-                        }
+                        log(response);
                         status = Status.RINGING;
                         statusHandler.onRinging(softphone);
                     }
@@ -202,44 +255,18 @@ public class SipClient implements SipListener {
                     SIPResponse byeResponse = request.createResponse(Response.OK);
                     log("Sending response to BYE");
                     log(byeResponse);
-                    requestEvent.getServerTransaction().sendResponse(byeResponse);
-                    status = Status.READY;
+                    ServerTransaction serverTransaction = requestEvent.getServerTransaction();
+                    serverTransaction.sendResponse(byeResponse);
+                    log(serverTransaction.getDialog().getState());
                     statusHandler.onCallEnded(softphone);
+                    status = Status.READY;
+
                     break;
             }
         } catch (Throwable e) {
             e.printStackTrace();
         }
 
-    }
-
-    private void prepareOkResponseForInvite(SIPRequest request) throws InvalidArgumentException, ParseException {
-        preparedOkResponseForInvite = request.createResponse(Response.OK);
-        // TODO PG: It is suggested that it should be NTP time format
-        long sessionIdAndVersion = System.currentTimeMillis();
-        String sdpBody =
-                "v=0\n" +
-                        // TODO PG: Think about putting in here user's login from host instead of '-'
-                        "o= - " + sessionIdAndVersion + " " + sessionIdAndVersion + " IN IP4 + " + localHostAddress + "\n" +
-                        "s=" + user + " Session\n" +
-                        "c=IN IP4 " + localHostAddress + "\n" +
-                        "t=0 0\n" +
-                        "m=audio 20008 RTP/AVP 0 101\n" +
-                        "a=rtpmap:0 PCMU/8000\n" +
-                        "a=rtpmap:101 telephone-event/8000\n" +
-                        "a=fmtp:101 0-16\n" +
-                        "a=ptime:20\n" +
-                        "a=maxptime:150\n" +
-                        "a=sendrecv\n";
-
-        // --- supported header copied from X-Lite
-        preparedOkResponseForInvite.addHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"));
-        preparedOkResponseForInvite.addHeader(headerFactory.createContentLengthHeader(sdpBody.length()));
-        preparedOkResponseForInvite.setContent(sdpBody, headerFactory.createContentTypeHeader("application", "sdp"));
-    }
-
-    private void prepareBusyResponseForInvite(SIPRequest request) {
-        preparedBusyResponseForInvite = request.createResponse(Response.BUSY_HERE);
     }
 
     @Override
@@ -251,29 +278,27 @@ public class SipClient implements SipListener {
             log(response);
         }
 
-        Dialog dialog = responseEvent.getDialog();
-
         if (response.getCSeq().getMethod().equals(Request.REGISTER)) {
             int expiresSetByServer = response.getExpires().getExpires();
             registrator.scheduleReRegistration(expiresSetByServer);
             return;
         }
 
-        if (dialog != null && response.isFinalResponse() && response.getStatusCode() == Response.OK) {
-            try {
-                // TODO: Maybe there is a better way to create ACK request when we have a dialog
-                Address remotePartyAddress = responseEvent.getDialog().getRemoteParty();
-                HeaderFactory headerFactory = SipFactory.getInstance().createHeaderFactory();
-                CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(1L, Request.ACK);
-                Request ackRequest = SipFactory.getInstance().createMessageFactory().createRequest(remotePartyAddress.getURI(), Request.ACK, dialog.getCallId(), cSeqHeader,
-                        headerFactory.createFromHeader(dialog.getLocalParty(), dialog.getLocalTag()),
-                        headerFactory.createToHeader(remotePartyAddress, dialog.getRemoteTag()),
-                        response.getViaHeaders(), HeaderUtils.getMaxForwardsHeader());
-                log("Sending ACK");
-                log(ackRequest);
-                dialog.sendAck(ackRequest);
+        clientTransaction = responseEvent.getClientTransaction();
+        currentDialog = clientTransaction.getDialog();
+        log(currentDialog.getState());
 
+        if (response.isFinalResponse()) {
+            try {
                 if (response.getCSeq().getMethod().equals(Request.INVITE)) {
+                    Request ackRequest = currentDialog.createAck(1);
+                    Address contactAddress = addressFactory.createAddress("sip:" + localHostAddress + ":" + port);
+                    ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
+                    ackRequest.addHeader(contactHeader);
+                    log("Sending ACK");
+                    log(ackRequest);
+                    currentDialog.sendAck(ackRequest);
+
                     status = Status.ON_CALL;
                     statusHandler.onCallAnswered(softphone);
                 }
@@ -313,7 +338,6 @@ public class SipClient implements SipListener {
     @Override
     public void processIOException(IOExceptionEvent exceptionEvent) {
         log("processIOException " + exceptionEvent);
-
     }
 
     @Override

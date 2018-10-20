@@ -19,7 +19,7 @@ class E2E {
     static final String ASTERISK_HOST = "192.168.56.101";
     static final String LOCAL_HOST_ADDRESS = "192.168.56.1";
 
-    boolean callFlowEndedSuccessfully;
+    volatile boolean callFlowEndedSuccessfully;
 
     Softphone caller;
     Softphone callee;
@@ -42,13 +42,9 @@ class E2E {
                 .withStatusListener(new StatusHandler() {
                     @Override
                     public void onCallAnswered(Softphone thisPhone) {
-                        System.out.println("E2E callInitiatedAndEndedByTheSamePeer - onCallAnswered");
-                        thisPhone.hangup();
-                        thisPhone.waitMiliseconds(500);
-                    }
-
-                    public void onCallEnded(Softphone softphone) {
-                        callFlowEndedSuccessfully = true;
+                        thisPhone.waitMiliseconds(5000);
+//                        thisPhone.hangup();
+                        thisPhone.waitMiliseconds(100);
                     }
                 })
                 .build();
@@ -58,8 +54,14 @@ class E2E {
                 .withStatusListener(new StatusHandler() {
                     @Override
                     public void onRinging(Softphone thisPhone) {
-                        System.out.println("E2E callInitiatedAndEndedByTheSamePeer - onRinging");
+                        thisPhone.waitMiliseconds(100);
                         thisPhone.answer();
+                        thisPhone.waitMiliseconds(200);
+                    }
+
+                    @Override
+                    public void onCallEnded(Softphone softphone) {
+                        callFlowEndedSuccessfully = true;
                     }
                 })
                 .build();
@@ -77,7 +79,6 @@ class E2E {
                 .withStatusListener(new StatusHandler() {
                     @Override
                     public void onCallEnded(Softphone thisPhone) {
-                        System.out.println("E2E callInitiatedByFirstPeerAndEndedBySecondPeer - onCallEnded");
                         callFlowEndedSuccessfully = true;
                     }
                 })
@@ -88,9 +89,8 @@ class E2E {
                 .withStatusListener(new StatusHandler() {
                     @Override
                     public void onRinging(Softphone thisPhone) {
-                        System.out.println("E2E callInitiatedByFirstPeerAndEndedBySecondPeer - onRinging");
                         thisPhone.answer();
-                        thisPhone.waitMiliseconds(1000);
+                        thisPhone.waitMiliseconds(500);
                         thisPhone.hangup();
                     }
                 })

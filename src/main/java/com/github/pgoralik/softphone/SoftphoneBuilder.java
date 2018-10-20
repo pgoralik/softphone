@@ -2,7 +2,9 @@ package com.github.pgoralik.softphone;
 
 import com.github.pgoralik.softphone.impl.status.NoOpStatusHandler;
 
+import java.io.IOException;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.UnknownHostException;
 
 public class SoftphoneBuilder {
@@ -31,6 +33,14 @@ public class SoftphoneBuilder {
 
     public Softphone build() {
         return new Softphone(user, host, localHostAddress, statusHandler);
+    }
+
+    private int randomPort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private String defaultLocalHostAddress() {
