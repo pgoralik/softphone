@@ -8,8 +8,12 @@ import java.util.concurrent.TimeUnit;
 public class Softphone {
     private SipClient sipClient;
 
-    Softphone(String user, String host, String localhostAddress, StatusHandler statusHandler) {
-        sipClient = new SipClient(user, host, localhostAddress, statusHandler, this);
+    Softphone(String user, String host, String localhostAddress) {
+        sipClient = new SipClient(user, host, localhostAddress, this);
+    }
+
+    public void setStatusHandler(StatusHandler statusHandler) {
+        sipClient.setStatusHandler(statusHandler);
     }
 
     public void close() {
@@ -26,8 +30,8 @@ public class Softphone {
     }
 
     public void pushOnDialpad(String buttonSequence) {
-        for(char button : buttonSequence.toCharArray()) {
-           sipClient.info(button);
+        for (char button : buttonSequence.toCharArray()) {
+            sipClient.info(button);
             try {
                 TimeUnit.MILLISECONDS.sleep(100);
             } catch (InterruptedException e) {

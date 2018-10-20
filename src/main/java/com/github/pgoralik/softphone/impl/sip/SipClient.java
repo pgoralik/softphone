@@ -2,6 +2,7 @@ package com.github.pgoralik.softphone.impl.sip;
 
 import com.github.pgoralik.softphone.Softphone;
 import com.github.pgoralik.softphone.StatusHandler;
+import com.github.pgoralik.softphone.impl.status.NoOpStatusHandler;
 import com.github.pgoralik.softphone.impl.status.Status;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
@@ -35,7 +36,7 @@ public class SipClient implements SipListener {
 
     private Dialog currentDialog;
     private Status status = Status.READY;
-    private StatusHandler statusHandler;
+    private StatusHandler statusHandler = new NoOpStatusHandler();
     private Softphone softphone;
 
     private long cseq = 1;
@@ -51,14 +52,13 @@ public class SipClient implements SipListener {
     }
 
 
-    public SipClient(String user, String host, String localHostAddress, StatusHandler statusHandler, Softphone softphone) {
+    public SipClient(String user, String host, String localHostAddress, Softphone softphone) {
         this.user = user;
         this.host = host;
         this.localHostAddress = localHostAddress;
         this.port = randomPort();
         this.loggingPrefix = "[" + user + "@" + host + "] ";
         log("SIP CLIENT PORT " + this.port);
-        this.statusHandler = statusHandler;
         this.softphone = softphone;
 
         try {
@@ -82,6 +82,10 @@ public class SipClient implements SipListener {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void setStatusHandler(StatusHandler statusHandler) {
+        this.statusHandler = statusHandler;
     }
 
     public void close() {

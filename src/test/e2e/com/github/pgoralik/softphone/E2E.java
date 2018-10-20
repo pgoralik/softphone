@@ -14,18 +14,28 @@ import static org.junit.jupiter.api.Assertions.fail;
  * To run those tests one needs to start Asterisk manually with configuration presented in asterisk-conf directory before
  * TODO: Try to build working docker image
  */
-
 class E2E {
-    static final String ASTERISK_HOST = "192.168.56.101";
-    static final String LOCAL_HOST_ADDRESS = "192.168.56.1";
+    private static final String ASTERISK_HOST = "192.168.56.101";
+    private static final String LOCAL_HOST_ADDRESS = "192.168.56.1";
 
-    volatile boolean callFlowEndedSuccessfully;
+    private volatile boolean callFlowEndedSuccessfully;
 
-    Softphone caller;
-    Softphone callee;
+    private Softphone caller;
+    private Softphone callee;
 
     @BeforeEach
     void setUp() {
+        caller = new SoftphoneBuilder("6001", ASTERISK_HOST)
+                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+                .build();
+
+        callee = new SoftphoneBuilder("6002", ASTERISK_HOST)
+                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+                .build();
+
+        caller.register();
+        callee.register();
+
         callFlowEndedSuccessfully = false;
     }
 
@@ -37,85 +47,67 @@ class E2E {
 
     @Test
     void callInitiatedAndEndedByTheSamePeer() {
-        caller = new SoftphoneBuilder("6001", ASTERISK_HOST)
-                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
-                .withStatusListener(new StatusHandler() {
-                    @Override
-                    public void onRegistered(Softphone thisPhone) {
-                        thisPhone.call("6002");
-                    }
+        caller.setStatusHandler(new StatusHandler() {
+            @Override
+            public void onRegistered(Softphone thisPhone) {
+                thisPhone.call("6002");
+            }
 
-                    @Override
-                    public void onCallAnswered(Softphone thisPhone) {
-                        thisPhone.hangup();
-                    }
+            @Override
+            public void onCallAnswered(Softphone thisPhone) {
+                thisPhone.hangup();
+            }
 
-                    @Override
-                    public void onCallEnded(Softphone thisPhone) {
-                        callFlowEndedSuccessfully = true;
-                    }
-                })
-                .build();
+            @Override
+            public void onCallEnded(Softphone thisPhone) {
+                callFlowEndedSuccessfully = true;
+            }
+        });
 
-        callee = new SoftphoneBuilder("6002", ASTERISK_HOST)
-                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
-                .withStatusListener(new StatusHandler() {
-                    @Override
-                    public void onRinging(Softphone thisPhone) {
-                        thisPhone.answer();
-                    }
+        callee.setStatusHandler(new StatusHandler() {
+            @Override
+            public void onRinging(Softphone thisPhone) {
+                thisPhone.answer();
+            }
 
-                    @Override
-                    public void onCallEnded(Softphone thisPhone) {
-                        // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
-                        callFlowEndedSuccessfully = true;
-                    }
-                })
-                .build();
-
-        caller.register();
-        callee.register();
+            @Override
+            public void onCallEnded(Softphone thisPhone) {
+                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
+                callFlowEndedSuccessfully = true;
+            }
+        });
 
         await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
     }
 
     @Test
     void callInitiatedByFirstPeerAndEndedBySecondPeer() {
-        caller = new SoftphoneBuilder("6001", ASTERISK_HOST)
-                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
-                .withStatusListener(new StatusHandler() {
-                    @Override
-                    public void onRegistered(Softphone thisPhone) {
-                        thisPhone.call("6002");
-                    }
+        caller.setStatusHandler(new StatusHandler() {
+            @Override
+            public void onRegistered(Softphone thisPhone) {
+                thisPhone.call("6002");
+            }
 
-                    @Override
-                    public void onCallEnded(Softphone thisPhone) {
-                        callFlowEndedSuccessfully = true;
-                    }
-                })
-                .build();
+            @Override
+            public void onCallEnded(Softphone thisPhone) {
+                callFlowEndedSuccessfully = true;
+            }
+        });
 
-        callee = new SoftphoneBuilder("6002", ASTERISK_HOST)
-                .withLocalHostAddress(LOCAL_HOST_ADDRESS)
-                .withStatusListener(new StatusHandler() {
-                    @Override
-                    public void onRinging(Softphone thisPhone) {
-                        thisPhone.answer();
-                        thisPhone.waitMiliseconds(500);
-                        thisPhone.hangup();
-                    }
+        callee.setStatusHandler(new StatusHandler() {
+            @Override
+            public void onRinging(Softphone thisPhone) {
+                thisPhone.answer();
+                thisPhone.waitMiliseconds(500);
+                thisPhone.hangup();
+            }
 
-                    @Override
-                    public void onCallEnded(Softphone thisPhone) {
-                        // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
-                        callFlowEndedSuccessfully = true;
-                    }
-                })
-                .build();
-
-        caller.register();
-        callee.register();
+            @Override
+            public void onCallEnded(Softphone thisPhone) {
+                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
+                callFlowEndedSuccessfully = true;
+            }
+        });
 
         await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
     }
