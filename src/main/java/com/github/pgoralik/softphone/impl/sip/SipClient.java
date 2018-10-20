@@ -280,6 +280,7 @@ public class SipClient implements SipListener {
 
         if (response.getCSeq().getMethod().equals(Request.REGISTER)) {
             int expiresSetByServer = response.getExpires().getExpires();
+            statusHandler.onRegistered(softphone);
             registrator.scheduleReRegistration(expiresSetByServer);
             return;
         }

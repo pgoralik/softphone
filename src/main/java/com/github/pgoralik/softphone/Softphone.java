@@ -10,7 +10,6 @@ public class Softphone {
 
     Softphone(String user, String host, String localhostAddress, StatusHandler statusHandler) {
         sipClient = new SipClient(user, host, localhostAddress, statusHandler, this);
-        sipClient.register();
     }
 
     public void close() {
@@ -20,6 +19,10 @@ public class Softphone {
 
     public void call(String phoneNumber) {
         sipClient.initDialog(phoneNumber);
+    }
+
+    public void register() {
+        sipClient.register();
     }
 
     public void pushOnDialpad(String buttonSequence) {
