@@ -1,9 +1,9 @@
 package com.github.pgoralik.softphone.impl.sip;
 
 import com.github.pgoralik.softphone.Softphone;
-import com.github.pgoralik.softphone.StatusHandler;
 import com.github.pgoralik.softphone.impl.status.NoOpStatusHandler;
 import com.github.pgoralik.softphone.impl.status.Status;
+import com.github.pgoralik.softphone.impl.status.StatusHandler;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 import org.apache.log4j.Logger;

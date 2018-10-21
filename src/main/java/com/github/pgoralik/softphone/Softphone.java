@@ -1,7 +1,7 @@
 package com.github.pgoralik.softphone;
 
 import com.github.pgoralik.softphone.impl.sip.SipClient;
-import com.github.pgoralik.softphone.impl.status.Status;
+import com.github.pgoralik.softphone.impl.status.StatusHandler;
 
 import java.util.concurrent.TimeUnit;
 
@@ -16,11 +16,6 @@ public class Softphone implements AutoCloseable {
         sipClient.setStatusHandler(statusHandler);
     }
 
-    @Override
-    public void close() {
-        sipClient.close();
-    }
-
     public void call(String phoneNumber) {
         sipClient.initDialog(phoneNumber);
     }
@@ -29,7 +24,7 @@ public class Softphone implements AutoCloseable {
         sipClient.register();
     }
 
-    public void pushOnDialpad(String buttonSequence) {
+    public void pushKeysOnDialpad(String buttonSequence) {
         for (char button : buttonSequence.toCharArray()) {
             sipClient.info(button);
             try {
@@ -38,10 +33,6 @@ public class Softphone implements AutoCloseable {
                 e.printStackTrace();
             }
         }
-    }
-
-    public Status getStatus() {
-        throw new RuntimeException("Not implemented yet.");
     }
 
     public void answer() {
@@ -56,10 +47,8 @@ public class Softphone implements AutoCloseable {
         sipClient.bye();
     }
 
-    public void waitMiliseconds(int ms) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(ms);
-        } catch (InterruptedException ignored) {
-        }
+    @Override
+    public void close() {
+        sipClient.close();
     }
 }

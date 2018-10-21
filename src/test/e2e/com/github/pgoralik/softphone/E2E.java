@@ -1,5 +1,6 @@
 package com.github.pgoralik.softphone;
 
+import com.github.pgoralik.softphone.impl.status.StatusHandlerBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -50,67 +51,36 @@ class E2E {
 
     @Test
     void callInitiatedAndEndedByTheSamePeer() {
-        caller.setStatusHandler(new StatusHandler() {
-            @Override
-            public void onRegistered(Softphone thisPhone) {
-                thisPhone.call("6002");
-            }
+        caller.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRegistered(thisPhone -> thisPhone.call("6002"))
+                .withOnCallAnswered(Softphone::hangup)
+                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .build());
 
-            @Override
-            public void onCallAnswered(Softphone thisPhone) {
-                thisPhone.hangup();
-            }
-
-            @Override
-            public void onCallEnded(Softphone thisPhone) {
-                callFlowEndedSuccessfully = true;
-            }
-        });
-
-        callee.setStatusHandler(new StatusHandler() {
-            @Override
-            public void onRinging(Softphone thisPhone) {
-                thisPhone.answer();
-            }
-
-            @Override
-            public void onCallEnded(Softphone thisPhone) {
-                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
-                callFlowEndedSuccessfully = true;
-            }
-        });
+        callee.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRinging(Softphone::answer)
+                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass. (or maybe it should be check in both anyway)
+                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .build());
 
         await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
     }
 
     @Test
     void callInitiatedByFirstPeerAndEndedBySecondPeer() {
-        caller.setStatusHandler(new StatusHandler() {
-            @Override
-            public void onRegistered(Softphone thisPhone) {
-                thisPhone.call("6002");
-            }
+        caller.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRegistered(thisPhone -> thisPhone.call("6002"))
+                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .build());
 
-            @Override
-            public void onCallEnded(Softphone thisPhone) {
-                callFlowEndedSuccessfully = true;
-            }
-        });
-
-        callee.setStatusHandler(new StatusHandler() {
-            @Override
-            public void onRinging(Softphone thisPhone) {
-                thisPhone.answer();
-                thisPhone.waitMiliseconds(500);
-                thisPhone.hangup();
-            }
-
-            @Override
-            public void onCallEnded(Softphone thisPhone) {
-                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass.
-                callFlowEndedSuccessfully = true;
-            }
-        });
+        callee.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRinging(thisPhone -> {
+                    thisPhone.answer();
+                    thisPhone.hangup();
+                })
+                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass. (or maybe it should be check in both anyway)
+                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .build());
 
         await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
     }
