@@ -28,10 +28,12 @@ class E2E {
     void setUp() {
         caller = new SoftphoneBuilder("6001", ASTERISK_HOST)
                 .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+                .withLoggingSIPMessagesEnabled()
                 .build();
 
         callee = new SoftphoneBuilder("6002", ASTERISK_HOST)
                 .withLocalHostAddress(LOCAL_HOST_ADDRESS)
+                .withLoggingSIPMessagesEnabled()
                 .build();
 
         caller.register();

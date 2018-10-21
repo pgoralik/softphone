@@ -1,5 +1,8 @@
 package com.github.pgoralik.softphone.impl.sip;
 
+import org.apache.log4j.Logger;
+
+import javax.sip.SipFactory;
 import javax.sip.SipProvider;
 import javax.sip.address.Address;
 import javax.sip.address.AddressFactory;
@@ -16,6 +19,8 @@ import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getMaxForwardsH
 import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getViaHeaders;
 
 class Registrator {
+    private static final Logger LOG = Logger.getLogger(Registrator.class);
+
     private CallIdHeader callId;
     private String fromTag = "callcentre-" + UUID.randomUUID() + "-softphone";
     private long sequenceNumber = 1;
@@ -31,11 +36,18 @@ class Registrator {
 
     private ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
-    Registrator(HeaderFactory headerFactory, AddressFactory addressFactory, MessageFactory messageFactory, SipProvider sipProvider) {
-        this.headerFactory = headerFactory;
-        this.addressFactory = addressFactory;
-        this.messageFactory = messageFactory;
+    private boolean isLogSIPMessagesEnabled;
+
+    Registrator(SipProvider sipProvider, boolean isLogSIPMessagesEnabled) {
+        try {
+            this.addressFactory = SipFactory.getInstance().createAddressFactory();
+            this.messageFactory = SipFactory.getInstance().createMessageFactory();
+            this.headerFactory = SipFactory.getInstance().createHeaderFactory();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         this.sipProvider = sipProvider;
+        this.isLogSIPMessagesEnabled = isLogSIPMessagesEnabled;
     }
 
     void register(String user, String host, String localHostAddress, int localHostPort) {
@@ -69,6 +81,7 @@ class Registrator {
             ContactHeader contactHeader = headerFactory.createContactHeader(addressFactory.createAddress(contactAddress));
             request.addHeader(contactHeader);
             request.addHeader(headerFactory.createExpiresHeader(expires));
+            logSIPMessage("Sends:\n" + request);
             sipProvider.sendRequest(request);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -77,5 +90,11 @@ class Registrator {
 
     void scheduleReRegistration(int secondsToExpiration) {
         executorService.schedule(() -> register(user, host, localHostAddress, localHostPort), secondsToExpiration, TimeUnit.SECONDS);
+    }
+
+    private void logSIPMessage(Object message) {
+        if (isLogSIPMessagesEnabled) {
+            LOG.info("[" + user + "@" + host + "] " + message);
+        }
     }
 }

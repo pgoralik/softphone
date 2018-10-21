@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit;
 public class Softphone implements AutoCloseable {
     private SipClient sipClient;
 
-    Softphone(String user, String host, String localhostAddress) {
-        sipClient = new SipClient(user, host, localhostAddress, this);
+    Softphone(String user, String host, String localhostAddress, boolean isLogSIPMessagesEnabled) {
+        sipClient = new SipClient(user, host, localhostAddress, isLogSIPMessagesEnabled, this);
     }
 
     public void setStatusHandler(StatusHandler statusHandler) {
