@@ -18,7 +18,12 @@ import javax.sip.message.Response;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.UUID;
+
+import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getMaxForwardsHeader;
+import static com.github.pgoralik.softphone.impl.sip.HeaderUtils.getViaHeaders;
 
 public class SipClient implements SipListener {
 
@@ -197,7 +202,7 @@ public class SipClient implements SipListener {
             SipURI toSipURI = addressFactory.createSipURI(destUser, host);
             Address toAddress = addressFactory.createAddress(toSipURI);
             ToHeader toHeader = headerFactory.createToHeader(toAddress, null);
-            Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(), HeaderUtils.getMaxForwardsHeader());
+            Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(localHostAddress, port), getMaxForwardsHeader());
             ContactHeader contactHeader = headerFactory.createContactHeader(fromAddress);
             request.addHeader(contactHeader);
             clientTransaction = sipProviderUdp.getNewClientTransaction(request);
@@ -208,12 +213,6 @@ public class SipClient implements SipListener {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private List<ViaHeader> getViaHeaders() throws ParseException, InvalidArgumentException {
-        List<ViaHeader> viaHeaders = new ArrayList<>();
-        viaHeaders.add(headerFactory.createViaHeader(localHostAddress, this.port, "udp", null));
-        return viaHeaders;
     }
 
     @Override

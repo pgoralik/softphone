@@ -5,7 +5,7 @@ import com.github.pgoralik.softphone.impl.status.Status;
 
 import java.util.concurrent.TimeUnit;
 
-public class Softphone {
+public class Softphone implements AutoCloseable {
     private SipClient sipClient;
 
     Softphone(String user, String host, String localhostAddress) {
@@ -16,8 +16,8 @@ public class Softphone {
         sipClient.setStatusHandler(statusHandler);
     }
 
+    @Override
     public void close() {
-        // TODO: Implement auto-closable?
         sipClient.close();
     }
 
@@ -41,7 +41,7 @@ public class Softphone {
     }
 
     public Status getStatus() {
-        return null;
+        throw new RuntimeException("Not implemented yet.");
     }
 
     public void answer() {

@@ -2,6 +2,7 @@ package com.github.pgoralik.softphone;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -113,6 +114,7 @@ class E2E {
     }
 
     @Test
+    @Disabled
     void sendDTMF() {
         fail("Not implemented yet");
     }
