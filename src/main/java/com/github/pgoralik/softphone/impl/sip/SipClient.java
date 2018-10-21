@@ -65,7 +65,7 @@ public class SipClient implements SipListener {
         }
     }
 
-    public SipClient(String user, String host, String localHostAddress, boolean isLogSIPMessagesEnabled, Softphone softphone) {
+    public SipClient(String user, String host, String localHostAddress, boolean isLogSIPMessagesEnabled, boolean isDebugEnabled, Softphone softphone) {
         this.user = user;
         this.host = host;
         this.localHostAddress = localHostAddress;
@@ -78,7 +78,9 @@ public class SipClient implements SipListener {
             SipFactory sipFactory = SipFactory.getInstance();
             Properties properties = new Properties();
             properties.setProperty("javax.sip.STACK_NAME", user + "_SOFTPHONE");
-//            properties.setProperty("gov.nist.javax.sip.TRACE_LEVEL", "32");
+            if (isDebugEnabled) {
+                properties.setProperty("gov.nist.javax.sip.TRACE_LEVEL", "32");
+            }
 
             sipStack = sipFactory.createSipStack(properties);
 

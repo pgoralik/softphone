@@ -8,6 +8,7 @@ public class SoftphoneBuilder {
     private String host;
     private String localHostAddress;
     private boolean isLogSIPMessagesEnabled;
+    private boolean debugEnabled;
 
     public SoftphoneBuilder(String user, String host) {
         this.user = user;
@@ -25,8 +26,13 @@ public class SoftphoneBuilder {
         return this;
     }
 
+    public SoftphoneBuilder withDebugEnabled() {
+        this.debugEnabled = true;
+        return this;
+    }
+
     public Softphone build() {
-        return new Softphone(user, host, localHostAddress, isLogSIPMessagesEnabled);
+        return new Softphone(user, host, localHostAddress, isLogSIPMessagesEnabled, debugEnabled);
     }
 
     private String defaultLocalHostAddress() {
