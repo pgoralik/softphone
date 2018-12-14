@@ -1,6 +1,15 @@
 context from-internal {
   6002 => {
     Dial(PJSIP/6002);
-    Hangup();
+  }
+
+  67 => {
+    Read(code,,,,,5);
+    if ("${code}" = "123") {
+      Playback(access-granted);
+      Dial(PJSIP/6002);
+    } else {
+      Hangup();
+    }
   }
 }

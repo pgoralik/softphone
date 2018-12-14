@@ -81,7 +81,7 @@ class Registrator {
             ContactHeader contactHeader = headerFactory.createContactHeader(addressFactory.createAddress(contactAddress));
             request.addHeader(contactHeader);
             request.addHeader(headerFactory.createExpiresHeader(expires));
-            logSIPMessage("Sends:\n" + request);
+            logSIPMessage("Sent:\n" + request);
             sipProvider.sendRequest(request);
         } catch (Exception e) {
             throw new RuntimeException(e);

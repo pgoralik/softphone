@@ -1,6 +1,7 @@
 package com.github.pgoralik.softphone.impl.sip;
 
 import com.github.pgoralik.softphone.Softphone;
+import com.github.pgoralik.softphone.impl.sdp.SdpUtil;
 import com.github.pgoralik.softphone.impl.status.NoOpStatusHandler;
 import com.github.pgoralik.softphone.impl.status.Status;
 import com.github.pgoralik.softphone.impl.status.StatusHandler;
@@ -130,29 +131,14 @@ public class SipClient implements SipListener {
             ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
             response.addHeader(contactHeader);
 
-            // TODO PG: It is suggested that it should be NTP time format
-            long sessionIdAndVersion = System.currentTimeMillis();
-            String sdpBody =
-                    "v=0\n" +
-                            // TODO PG: Think about putting in here user's login from host instead of '-'
-                            "o=- " + sessionIdAndVersion + " " + sessionIdAndVersion + " IN IP4 " + localHostAddress + "\n" +
-                            "s=" + user + " Session\n" +
-                            "c=IN IP4 " + localHostAddress + "\n" +
-                            "t=0 0\n" +
-                            "m=audio 20008 RTP/AVP 0 101\n" +
-                            "a=rtpmap:0 PCMU/8000\n" +
-                            "a=rtpmap:101 telephone-event/8000\n" +
-                            "a=fmtp:101 0-16\n" +
-                            "a=ptime:20\n" +
-                            "a=maxptime:150\n" +
-                            "a=sendrecv\n";
+            String sdpBody = SdpUtil.createSdpBody(user, localHostAddress);
 
             // --- supported header copied from X-Lite
             response.addHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"));
             response.addHeader(headerFactory.createContentLengthHeader(sdpBody.length()));
             response.setContent(sdpBody, headerFactory.createContentTypeHeader("application", "sdp"));
 
-            logSIPMessage("Sends:\n" + response);
+            logSIPMessage("Sent:\n" + response);
             serverTransaction.sendResponse(response);
             currentDialog = serverTransaction.getDialog();
         } catch (ParseException | InvalidArgumentException | SipException e) {
@@ -171,7 +157,7 @@ public class SipClient implements SipListener {
             ToHeader responseToHeader = (ToHeader) response.getHeader("To");
             responseToHeader.setTag("454326");
 
-            logSIPMessage("Sends:\n" + response);
+            logSIPMessage("Sent:\n" + response);
             serverTransaction.sendResponse(response);
             currentDialog = serverTransaction.getDialog();
         } catch (ParseException | InvalidArgumentException | SipException e) {
@@ -183,7 +169,7 @@ public class SipClient implements SipListener {
         try {
             Request byeRequest = currentDialog.createRequest(Request.BYE);
             ClientTransaction clientTransaction = sipProviderUdp.getNewClientTransaction(byeRequest);
-            logSIPMessage("Sends:\n" + byeRequest);
+            logSIPMessage("Sent:\n" + byeRequest);
             currentDialog.sendRequest(clientTransaction);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -207,8 +193,13 @@ public class SipClient implements SipListener {
             Request request = messageFactory.createRequest(toSipURI, Request.INVITE, newCallId, cSeqHeader, fromHeader, toHeader, getViaHeaders(localHostAddress, port), getMaxForwardsHeader());
             ContactHeader contactHeader = headerFactory.createContactHeader(fromAddress);
             request.addHeader(contactHeader);
+
+            String sdpBody = SdpUtil.createSdpBody(user, localHostAddress);
+            request.addHeader(headerFactory.createContentLengthHeader(sdpBody.length()));
+            request.setContent(sdpBody, headerFactory.createContentTypeHeader("application", "sdp"));
+
             clientTransaction = sipProviderUdp.getNewClientTransaction(request);
-            logSIPMessage("Sends:\n" + request);
+            logSIPMessage("Sent:\n" + request);
             clientTransaction.sendRequest();
             currentDialog = clientTransaction.getDialog();
         } catch (Exception e) {
@@ -235,7 +226,7 @@ public class SipClient implements SipListener {
                     optionsResponse.addHeader(headerFactory.createAcceptLanguageHeader(Locale.ENGLISH));
                     optionsResponse.addHeader(headerFactory.createAllowEventsHeader("presence, kpml, talk"));
                     // -------------------------------------------------------------------------------------------------------------------------------------------
-                    logSIPMessage("Sends:\n" + optionsResponse);
+                    logSIPMessage("Sent:\n" + optionsResponse);
                     sipProviderUdp.sendResponse(optionsResponse);
                     break;
                 case Request.INVITE:
@@ -249,14 +240,14 @@ public class SipClient implements SipListener {
                         response.addHeader(contactHeader);
                         serverTransaction.sendResponse(response);
                         currentDialog = serverTransaction.getDialog();
-                        logSIPMessage("Sends:\n" + response);
+                        logSIPMessage("Sent:\n" + response);
                         status = Status.RINGING;
                         statusHandler.onRinging(softphone);
                     }
                     break;
                 case Request.BYE:
                     SIPResponse byeResponse = request.createResponse(Response.OK);
-                    logSIPMessage("Sends:\n" + byeResponse);
+                    logSIPMessage("Sent:\n" + byeResponse);
                     ServerTransaction serverTransaction = requestEvent.getServerTransaction();
                     serverTransaction.sendResponse(byeResponse);
                     statusHandler.onCallEnded(softphone);
@@ -295,7 +286,7 @@ public class SipClient implements SipListener {
                     Address contactAddress = addressFactory.createAddress("sip:" + localHostAddress + ":" + port);
                     ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
                     ackRequest.addHeader(contactHeader);
-                    logSIPMessage("Sends:\n" + ackRequest);
+                    logSIPMessage("Sent:\n" + ackRequest);
                     currentDialog.sendAck(ackRequest);
 
                     status = Status.ON_CALL;
@@ -322,8 +313,8 @@ public class SipClient implements SipListener {
         try {
             Request request = currentDialog.createRequest(Request.INFO);
             request.setContent(content, headerFactory.createContentTypeHeader("application", "dtmf"));
-            request.setHeader(headerFactory.createCSeqHeader(cseq++, Request.INFO));
-            logSIPMessage("Sends:\n" + request);
+            request.setHeader(headerFactory.createCSeqHeader(1000 + cseq++, Request.INFO));
+            logSIPMessage("Sent:\n" + request);
             sipProviderUdp.sendRequest(request);
         } catch (Exception e) {
             e.printStackTrace();

@@ -3,13 +3,12 @@ package com.github.pgoralik.softphone;
 import com.github.pgoralik.softphone.impl.status.StatusHandlerBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /*
  * How to run E2E tests:
@@ -19,8 +18,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 class E2E {
     private static final String ASTERISK_HOST = "192.168.56.101";
     private static final String LOCAL_HOST_ADDRESS = "192.168.56.1";
-
-    private volatile boolean callFlowEndedSuccessfully;
 
     private Softphone caller;
     private Softphone callee;
@@ -39,8 +36,6 @@ class E2E {
 
         caller.register();
         callee.register();
-
-        callFlowEndedSuccessfully = false;
     }
 
     @AfterEach
@@ -51,26 +46,32 @@ class E2E {
 
     @Test
     void callInitiatedAndEndedByTheSamePeer() {
+        AtomicBoolean callerEndedSuccessfully = new AtomicBoolean(false);
+        AtomicBoolean calleeEndedSuccessfully = new AtomicBoolean(false);
+
         caller.setStatusHandler(new StatusHandlerBuilder()
                 .withOnRegistered(thisPhone -> thisPhone.call("6002"))
                 .withOnCallAnswered(Softphone::hangup)
-                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .withOnCallEnded(thisPhone -> callerEndedSuccessfully.set(true))
                 .build());
 
         callee.setStatusHandler(new StatusHandlerBuilder()
                 .withOnRinging(Softphone::answer)
-                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass. (or maybe it should be check in both anyway)
-                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .withOnCallEnded(thisPhone -> calleeEndedSuccessfully.set(true))
                 .build());
 
-        await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
+        await("Caller's call ended successfully").atMost(10, SECONDS).untilTrue(callerEndedSuccessfully);
+//        await("Callee's call ended successfully").atMost(10, SECONDS).untilTrue(calleeEndedSuccessfully);
     }
 
     @Test
     void callInitiatedByFirstPeerAndEndedBySecondPeer() {
+        AtomicBoolean callerEndedSuccessfully = new AtomicBoolean(false);
+        AtomicBoolean calleeEndedSuccessfully = new AtomicBoolean(false);
+
         caller.setStatusHandler(new StatusHandlerBuilder()
                 .withOnRegistered(thisPhone -> thisPhone.call("6002"))
-                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .withOnCallEnded(thisPhone -> callerEndedSuccessfully.set(true))
                 .build());
 
         callee.setStatusHandler(new StatusHandlerBuilder()
@@ -78,16 +79,31 @@ class E2E {
                     thisPhone.answer();
                     thisPhone.hangup();
                 })
-                // TODO: This callback is not called, that's why below flag is set also in caller to make this test pass. (or maybe it should be check in both anyway)
-                .withOnCallEnded(thisPhone -> callFlowEndedSuccessfully = true)
+                .withOnCallEnded(thisPhone -> calleeEndedSuccessfully.set(true))
                 .build());
 
-        await().atMost(60, SECONDS).untilAsserted(() -> assertTrue(callFlowEndedSuccessfully));
+//        await("Caller's call ended successfully").atMost(10, SECONDS).untilTrue(callerEndedSuccessfully);
+        await("Callee's call ended successfully").atMost(10, SECONDS).untilTrue(calleeEndedSuccessfully);
     }
 
     @Test
-    @Disabled
     void sendDTMF() {
-        fail("Not implemented yet");
+        AtomicBoolean dtmfWasSentSuccessfully = new AtomicBoolean(false);
+
+        caller.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRegistered(thisPhone -> thisPhone.call("67"))
+                .withOnCallAnswered(thisPhone -> {
+                    thisPhone.pushKeysOnDialpad("123#");
+                })
+                .build());
+
+        callee.setStatusHandler(new StatusHandlerBuilder()
+                .withOnRinging(thisPhone -> {
+                    thisPhone.reject();
+                    dtmfWasSentSuccessfully.set(true);
+                })
+                .build());
+
+        await().atMost(10, SECONDS).untilTrue(dtmfWasSentSuccessfully);
     }
 }
