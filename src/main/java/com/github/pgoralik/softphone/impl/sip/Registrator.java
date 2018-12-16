@@ -89,7 +89,7 @@ class Registrator {
     }
 
     void scheduleReRegistration(int secondsToExpiration) {
-        executorService.schedule(() -> register(user, host, localHostAddress, localHostPort), secondsToExpiration, TimeUnit.SECONDS);
+        executorService.schedule(() -> register(user, host, localHostAddress, localHostPort), secondsToExpiration - 1, TimeUnit.SECONDS);
     }
 
     private void logSIPMessage(Object message) {
